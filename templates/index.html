@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>DC Street Network</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.css" rel="stylesheet" />
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script>
+
+var route_lines_dict;
+var route_lines;
+
+
+
+function route_path(lat1,lon1, lat2, lon2) {
+  // code to be executed
+	console.log("I'm in the route_path function")
+    pts_data = {'lat1' : lat1,
+				'lon1': lon1,
+				'lat2':lat2,
+				'lon2':lon2}
+
+    // $.post({
+    //   url: "/route",
+    //   contentType: "application/json",
+    //   data: JSON.stringify(pts_data),
+    //   success: function(result){
+	// 	  console.log(result)
+	// 	route_lines_dict = result.route_lines_dict
+    //   }
+    // });
+
+	$.ajax({
+            url: '/route',
+			contentType: 'application/json',
+            data: JSON.stringify(pts_data),
+            type: 'POST',
+            success: function(result) {
+                console.log("I'm in the POST result")
+				route_lines_dict = result.route_lines_dict
+				route_lines = JSON.parse(route_lines_dict)
+				// console.log(route_lines)
+            },
+            error: function(error) {
+                console.log(error);
+            }
+        });
+		console.log("I'm returning route_lines")
+		return route_lines
+	
+  }
+
+
+
+// console.log(route_lines_dict)
+// console.log(route_path)
+
+//   console.log(route_lines_dict)
+	</script>
+<style>
+	body { margin: 0; padding: 0; }
+	#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+	#console {
+		  position: absolute;
+		  width: 240px;
+		  margin: 10px;
+		  padding: 10px 20px;
+		  background-color: white;
+		}
+
+	.session {
+		margin-bottom: 20px;
+	}
+	.row {
+		  height: 12px;
+		  width: 100%;
+		}
+
+	#menu {
+	background: #fff;
+	position: absolute;
+	z-index: 1;
+	top: 10px;
+	right: 10px;
+	border-radius: 3px;
+	width: 120px;
+	border: 1px solid rgba(0, 0, 0, 0.4);
+	font-family: 'Open Sans', sans-serif;
+	}
+
+	#menu a {
+	font-size: 13px;
+	color: #404040;
+	display: block;
+	margin: 0;
+	padding: 0;
+	padding: 10px;
+	text-decoration: none;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+	text-align: center;
+	}
+
+	#menu a:last-child {
+	border: none;
+	}
+
+	#menu a:hover {
+	background-color: #f8f8f8;
+	color: #404040;
+	}
+
+	#menu a.active {
+	background-color: #3887be;
+	color: #ffffff;
+	}
+
+	#menu a.active:hover {
+	background: #3074a4;
+	}
+
+
+	.mapboxgl-popup {
+max-width: 400px;
+font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+}
+</style>
+
+<script>
+	
+	</script>
+
+</head>
+<body>
+<nav id="menu"></nav>
+<div id="map"></div>
+<div id='console'>
+	<h1>street network</h1>
+	<p>street network data from <a href='https://www.openstreetmap.org/' target='blank'>OSM</a></p>
+    <!-- <div class='session'>
+        <h4>selected lat/long</h4>
+        <ul class='legend' id='selected_latlong'></ul>
+    </div> -->
+</div>
+
+
+<script>
+
+
+	mapboxgl.accessToken = 'pk.eyJ1Ijoic2lkZXRyYWNrZWRtaW5kIiwiYSI6ImNrN2h6b3JpeDAwbmozbW1hc3d0MDg5azEifQ.JyhKY2IKA1-lczYr8kxc7Q';
+var map = new mapboxgl.Map({
+container: 'map', // container id
+style: 'mapbox://styles/mapbox/light-v10', // stylesheet location
+center: [-77.037009, 38.897912], // starting position [lng, lat]
+//pitch: 60, // pitch in degrees
+//bearing: 15, // bearing in degrees
+zoom: 12 // starting zoom
+});
+
+map.addControl(new mapboxgl.NavigationControl());
+map.addControl(new mapboxgl.FullscreenControl());
+
+var start_lon, start_lat, end_lon, end_lat;
+
+var pointer = 'end';
+
+map.on('load', function() {
+
+	map.addSource('route_line_geo', {
+'type':'geojson',
+'data': {"type": "FeatureCollection", 
+"features": [{"id": "0", "type": "Feature", "properties": 
+{"idx": 0}, "geometry": 
+{"type": "LineString", "coordinates": 
+[[-77.037009, 38.897912], [-77.037009, 38.897925]]}},
+{"id": "1", "type": "Feature", "properties": 
+{"idx": 1}, "geometry": 
+{"type": "LineString", "coordinates": 
+[[-77.037009, 38.897925], [-77.037005, 38.897922]]}}], 
+"crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}}}
+
+});
+
+map.addLayer({
+	id: 'route_line_layer',
+	type: 'line',
+	source: 'route_line_geo',
+	paint: {
+		'line-width':2
+	}
+});
+
+map.addSource('clickedpoint', {
+'type': 'geojson',
+'data': {
+'type': 'FeatureCollection',
+'features': [
+{
+// feature for Mapbox DC
+'type': 'Feature',
+'geometry': {
+'type': 'Point',
+'coordinates': [
+-77.037009, 38.897912
+]
+},
+'properties': {
+'description': 'end'
+}
+}
+]
+}
+});
+
+
+map.addLayer({
+'id': 'clickedpoint_lyr',
+'type': 'circle',
+'source': 'clickedpoint',
+// 'layout': {
+// 'text-field': ['get', 'description'],
+// 'text-variable-anchor': ['top'],
+// 'text-radial-offset': 0.5,
+// 'text-justify': 'auto'
+// }
+});
+
+start_lat = 38.897912
+start_lon = -77.037009
+end_lat = 38.897912
+end_lon = -77.037009
+
+// web source
+map.on('click', function(e) {
+var Obj = document.getElementById('selected_latlong');
+latlong = e.lngLat
+var new_str = "<ul class='legend' id='selected_latlong'>"+latlong.lng+latlong.lat+"</ul>"
+
+
+
+if (pointer == 'end') {
+  start_lat = latlong.lat
+  start_lon = latlong.lng
+} else {
+  	end_lat = latlong.lat
+  	end_lon = latlong.lng
+}
+var marker_json = {
+'type': 'FeatureCollection',
+'features': [
+{
+// feature for Mapbox DC
+'type': 'Feature',
+'geometry': {
+'type': 'Point',
+'coordinates': [
+start_lon, start_lat
+]
+},
+'properties': {
+'description': 'start'
+}
+},
+{
+// feature for Mapbox DC
+'type': 'Feature',
+'geometry': {
+'type': 'Point',
+'coordinates': [
+end_lon, end_lat
+]
+},
+'properties': {
+'description': 'end'
+}
+}
+]
+};
+
+console.log([start_lat, start_lon])
+console.log([end_lat, end_lon])
+
+// console.log(marker_json)
+map.getSource('clickedpoint').setData(marker_json);
+  
+
+	// route_lines = route_path(start_lat,start_lon, end_lat, end_lon);
+	// console.log(route_lines)
+
+	
+	function put_route(map,route_lines) {
+		console.log("I'm in the put_route function")
+		console.log(route_lines)
+		map.getSource('route_line_geo').setData(route_lines);
+	}
+
+	function put_clickedpoint(map,marker_json) {
+		console.log("I'm in the put_clickedpoint function")
+		console.log(marker_json)
+		map.getSource('clickedpoint').setData(marker_json);
+	}
+	
+
+	function get_and_load_route(start_lat,start_lon, end_lat, end_lon, marker_json ,map) {
+		console.log("I'm in the top of the get_and_load_route function")
+		route_lines = route_path(start_lat,start_lon, end_lat, end_lon);
+		// console.log(route_lines)
+		$( document ).ajaxComplete(function() {
+			console.log("I'm in the ajaxcomplete of the get_and_load_route function")
+		put_route(map,route_lines)
+		put_clickedpoint(map,marker_json)
+  console.log("ajax complete");
+});
+		
+}
+
+
+get_and_load_route(start_lat,start_lon, end_lat, end_lon, marker_json, map)
+  
+
+
+  if (pointer == 'end') {
+	  console.log("I'm in the second pointer == end loop")
+  pointer = 'start'
+  }
+  else {
+	pointer = 'end'
+  }
+
+// var marker = new mapboxgl.Marker()
+// .setLngLat([latlong.lng, latlong.lat])
+// .setPopup(new mapboxgl.Popup({ offset: 25 }) // add popups
+// .setHTML('<h3>' + 'coords' + '</h3><p>' + latlong.lng+latlong.lat + '</p>'))
+// .addTo(map)
+// console.log(latlong)
+
+// Update the source with this new data.
+
+});
+
+
+
+});
+
+
+</script>
+
+</body>
+</html>
